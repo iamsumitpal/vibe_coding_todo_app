@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Persistence Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #c82333; }
+        button.success { background: #28a745; }
+        button.success:hover { background: #218838; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; font-size: 12px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 3px; }
+        .status.info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        .status.success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .status.error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Enhanced Todo App Persistence Test</h1>
+        <p>This test verifies the robust state management system with localStorage + memory store fallback.</p>
+        
+        <div class="grid">
+            <div class="test-section">
+                <h3>1. Storage System Test</h3>
+                <button onclick="testStorageSystem()">Test Storage System</button>
+                <div id="storageResult"></div>
+            </div>
+
+            <div class="test-section">
+                <h3>2. Data Persistence Test</h3>
+                <button onclick="testDataPersistence()">Test Data Persistence</button>
+                <div id="persistenceResult"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Current Storage Status</h3>
+            <button onclick="checkStorageStatus()">Check Storage Status</button>
+            <button onclick="clearAllData()" class="danger">Clear All Data</button>
+            <div id="statusResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Stress Test</h3>
+            <button onclick="addMultipleTasks()" class="success">Add 10 Test Tasks</button>
+            <button onclick="simulateRefresh()">Simulate Page Refresh</button>
+            <div id="stressResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>5. Instructions for Testing</h3>
+            <ol>
+                <li><strong>Click "Test Storage System"</strong> to verify localStorage and memory store are working</li>
+                <li><strong>Click "Test Data Persistence"</strong> to add a test task and verify it persists</li>
+                <li><strong>Click "Check Storage Status"</strong> to see current data storage info</li>
+                <li><strong>Click "Add 10 Test Tasks"</strong> to add multiple tasks for stress testing</li>
+                <li><strong>Click "Simulate Page Refresh"</strong> to test data survival through refresh</li>
+                <li><strong>Close this browser tab completely</strong> and reopen to test persistence</li>
+                <li><strong>Go to <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></strong> to test the actual app</li>
+            </ol>
+        </div>
+
+        <div class="status info">
+            <strong>💡 Tip:</strong> The new system uses both localStorage and an in-memory Map as fallback. 
+            If localStorage fails, the memory store will preserve your data during the session.
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'todo-app-tasks-v1';
+        const MEMORY_STORE_KEY = 'todo-app-memory-store';
+
+        // Simulate the state manager
+        class TestStateManager {
+            constructor() {
+                this.memoryStore = new Map();
+                this.loadMemoryStore();
+            }
+
+            loadMemoryStore() {
+                try {
+                    const stored = localStorage.getItem(MEMORY_STORE_KEY);
+                    if (stored) {
+                        const parsed = JSON.parse(stored);
+                        this.memoryStore = new Map(Object.entries(parsed));
+                    }
+                } catch (error) {
+                    console.error('Error loading memory store:', error);
+                }
+            }
+
+            saveMemoryStore() {
+                try {
+                    const serialized = Object.fromEntries(this.memoryStore);
+                    localStorage.setItem(MEMORY_STORE_KEY, JSON.stringify(serialized));
+                } catch (error) {
+                    console.error('Error saving memory store:', error);
+                }
+            }
+
+            getTasks() {
+                try {
+                    const stored = localStorage.getItem(STORAGE_KEY);
+                    if (stored) {
+                        const parsed = JSON.parse(stored);
+                        if (Array.isArray(parsed)) {
+                            const tasks = parsed.map(task => ({
+                                ...task,
+                                createdAt: new Date(task.createdAt),
+                                dueDate: task.dueDate ? new Date(task.dueDate) : null
+                            }));
+                            
+                            this.memoryStore.set(STORAGE_KEY, tasks);
+                            this.saveMemoryStore();
+                            
+                            return tasks;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading from localStorage:', error);
+                }
+
+                const memoryTasks = this.memoryStore.get(STORAGE_KEY);
+                if (memoryTasks && Array.isArray(memoryTasks)) {
+                    return memoryTasks;
+                }
+
+                return [];
+            }
+
+            saveTasks(tasks) {
+                if (!Array.isArray(tasks)) {
+                    return false;
+                }
+
+                try {
+                    const serializedTasks = tasks.map(task => ({
+                        ...task,
+                        createdAt: task.createdAt instanceof Date ? task.createdAt.toISOString() : new Date(task.createdAt).toISOString(),
+                        dueDate: task.dueDate ? (task.dueDate instanceof Date ? task.dueDate.toISOString() : new Date(task.dueDate).toISOString()) : null
+                    }));
+                    
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(serializedTasks));
+                    this.memoryStore.set(STORAGE_KEY, tasks);
+                    this.saveMemoryStore();
+                    
+                    return true;
+                } catch (error) {
+                    console.error('Error saving tasks:', error);
+                    
+                    try {
+                        this.memoryStore.set(STORAGE_KEY, tasks);
+                        this.saveMemoryStore();
+                        return true;
+                    } catch (memoryError) {
+                        console.error('Error saving to memory store:', memoryError);
+                        return false;
+                    }
+                }
+            }
+
+            getStorageInfo() {
+                try {
+                    const localStorageSize = localStorage.getItem(STORAGE_KEY)?.length || 0;
+                    const memoryStoreSize = this.memoryStore.size;
+                    const backupCount = Object.keys(localStorage).filter(key => 
+                        key.startsWith(`${STORAGE_KEY}-backup-`)
+                    ).length;
+                    
+                    return {
+                        localStorageSize,
+                        memoryStoreSize,
+                        backupCount,
+                        hasData: localStorageSize > 0 || memoryStoreSize > 0
+                    };
+                } catch (error) {
+                    return { localStorageSize: 0, memoryStoreSize: 0, backupCount: 0, hasData: false };
+                }
+            }
+
+            clearData() {
+                try {
+                    localStorage.removeItem(STORAGE_KEY);
+                    this.memoryStore.delete(STORAGE_KEY);
+                    this.saveMemoryStore();
+                    
+                    const backupKeys = Object.keys(localStorage).filter(key => 
+                        key.startsWith(`${STORAGE_KEY}-backup-`)
+                    );
+                    backupKeys.forEach(key => localStorage.removeItem(key));
+                    
+                    return true;
+                } catch (error) {
+                    console.error('Error clearing data:', error);
+                    return false;
+                }
+            }
+        }
+
+        const testStateManager = new TestStateManager();
+
+        function testStorageSystem() {
+            const result = document.getElementById('storageResult');
+            try {
+                // Test localStorage
+                localStorage.setItem('test', 'test-value');
+                const testValue = localStorage.getItem('test');
+                localStorage.removeItem('test');
+                
+                if (testValue !== 'test-value') {
+                    throw new Error('localStorage test failed');
+                }
+
+                // Test memory store
+                testStateManager.memoryStore.set('test', 'test-value');
+                const memoryValue = testStateManager.memoryStore.get('test');
+                testStateManager.memoryStore.delete('test');
+                
+                if (memoryValue !== 'test-value') {
+                    throw new Error('Memory store test failed');
+                }
+
+                result.innerHTML = `
+                    <div class="status success">
+                        ✅ Storage System Test Passed
+                        <br>✅ localStorage: Working
+                        <br>✅ Memory Store: Working
+                        <br>✅ Both systems are operational
+                    </div>
+                `;
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="status error">
+                        ❌ Storage System Test Failed
+                        <br>Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function testDataPersistence() {
+            const result = document.getElementById('persistenceResult');
+            try {
+                const testTask = {
+                    id: Date.now().toString(),
+                    title: 'Persistence Test Task',
+                    description: 'This task tests the robust state management system',
+                    status: 'To Do',
+                    priority: 'High',
+                    dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                    createdAt: new Date().toISOString()
+                };
+
+                const currentTasks = testStateManager.getTasks();
+                const updatedTasks = [testTask, ...currentTasks];
+                
+                const saveSuccess = testStateManager.saveTasks(updatedTasks);
+                
+                if (!saveSuccess) {
+                    throw new Error('Failed to save tasks');
+                }
+
+                // Verify the task was saved
+                const retrievedTasks = testStateManager.getTasks();
+                const savedTask = retrievedTasks.find(task => task.id === testTask.id);
+                
+                if (!savedTask) {
+                    throw new Error('Task was not persisted');
+                }
+
+                result.innerHTML = `
+                    <div class="status success">
+                        ✅ Data Persistence Test Passed
+                        <br>✅ Task saved successfully
+                        <br>✅ Task retrieved successfully
+                        <br>✅ Total tasks: ${retrievedTasks.length}
+                        <pre>${JSON.stringify(savedTask, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="status error">
+                        ❌ Data Persistence Test Failed
+                        <br>Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function checkStorageStatus() {
+            const result = document.getElementById('statusResult');
+            try {
+                const info = testStateManager.getStorageInfo();
+                const tasks = testStateManager.getTasks();
+                
+                result.innerHTML = `
+                    <div class="status info">
+                        📊 Storage Status:
+                        <br>✅ localStorage size: ${info.localStorageSize} bytes
+                        <br>✅ Memory store entries: ${info.memoryStoreSize}
+                        <br>✅ Backup count: ${info.backupCount}
+                        <br>✅ Has data: ${info.hasData ? 'Yes' : 'No'}
+                        <br>✅ Current tasks: ${tasks.length}
+                        ${tasks.length > 0 ? `<br><pre>${JSON.stringify(tasks.slice(0, 2), null, 2)}</pre>` : ''}
+                    </div>
+                `;
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="status error">
+                        ❌ Error checking storage status: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function addMultipleTasks() {
+            const result = document.getElementById('stressResult');
+            try {
+                const currentTasks = testStateManager.getTasks();
+                const newTasks = [];
+                
+                for (let i = 1; i <= 10; i++) {
+                    newTasks.push({
+                        id: `stress-test-${Date.now()}-${i}`,
+                        title: `Stress Test Task ${i}`,
+                        description: `This is stress test task number ${i}`,
+                        status: i % 3 === 0 ? 'Done' : i % 3 === 1 ? 'In Progress' : 'To Do',
+                        priority: i % 3 === 0 ? 'High' : i % 3 === 1 ? 'Medium' : 'Low',
+                        dueDate: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString(),
+                        createdAt: new Date().toISOString()
+                    });
+                }
+                
+                const updatedTasks = [...newTasks, ...currentTasks];
+                const saveSuccess = testStateManager.saveTasks(updatedTasks);
+                
+                if (!saveSuccess) {
+                    throw new Error('Failed to save multiple tasks');
+                }
+                
+                result.innerHTML = `
+                    <div class="status success">
+                        ✅ Stress Test Passed
+                        <br>✅ Added 10 test tasks
+                        <br>✅ Total tasks now: ${updatedTasks.length}
+                        <br>✅ All tasks saved successfully
+                    </div>
+                `;
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="status error">
+                        ❌ Stress Test Failed
+                        <br>Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function simulateRefresh() {
+            const result = document.getElementById('stressResult');
+            try {
+                const tasksBefore = testStateManager.getTasks();
+                const taskCount = tasksBefore.length;
+                
+                // Simulate a page refresh by clearing and reloading
+                const tempTasks = [...tasksBefore];
+                testStateManager.clearData();
+                
+                // Reload tasks
+                const tasksAfter = testStateManager.getTasks();
+                
+                if (tasksAfter.length !== taskCount) {
+                    throw new Error(`Task count mismatch: ${tasksAfter.length} vs ${taskCount}`);
+                }
+                
+                result.innerHTML = `
+                    <div class="status success">
+                        ✅ Refresh Simulation Passed
+                        <br>✅ Tasks before: ${taskCount}
+                        <br>✅ Tasks after: ${tasksAfter.length}
+                        <br>✅ Data persistence verified
+                    </div>
+                `;
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="status error">
+                        ❌ Refresh Simulation Failed
+                        <br>Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function clearAllData() {
+            const result = document.getElementById('statusResult');
+            try {
+                const success = testStateManager.clearData();
+                
+                if (success) {
+                    result.innerHTML = `
+                        <div class="status success">
+                            ✅ All data cleared successfully
+                            <br>✅ localStorage cleared
+                            <br>✅ Memory store cleared
+                            <br>✅ Backups cleared
+                        </div>
+                    `;
+                } else {
+                    throw new Error('Failed to clear data');
+                }
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="status error">
+                        ❌ Error clearing data: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Auto-run storage system test on page load
+        window.onload = function() {
+            testStorageSystem();
+        };
+    </script>
+</body>
+</html> 

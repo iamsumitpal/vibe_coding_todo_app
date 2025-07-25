@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persistence Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Todo App Persistence Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Test localStorage Access</h3>
+        <button onclick="testLocalStorage()">Test localStorage</button>
+        <div id="localStorageResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Test Todo App Data</h3>
+        <button onclick="testTodoData()">Check Todo Data</button>
+        <div id="todoDataResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Test Data Persistence</h3>
+        <button onclick="addTestData()">Add Test Data</button>
+        <button onclick="clearTestData()">Clear Test Data</button>
+        <div id="persistenceResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. Instructions</h3>
+        <ol>
+            <li>Click "Test localStorage" to verify browser storage is working</li>
+            <li>Click "Check Todo Data" to see current stored tasks</li>
+            <li>Click "Add Test Data" to add a test task</li>
+            <li>Close this browser tab completely</li>
+            <li>Reopen and check if the test data is still there</li>
+            <li>Go to <a href="http://localhost:3000" target="_blank">http://localhost:3000</a> to test the actual app</li>
+        </ol>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'todo-app-tasks-v1';
+
+        function testLocalStorage() {
+            const result = document.getElementById('localStorageResult');
+            try {
+                localStorage.setItem('test', 'test-value');
+                const testValue = localStorage.getItem('test');
+                localStorage.removeItem('test');
+                
+                if (testValue === 'test-value') {
+                    result.innerHTML = '<div class="success">✅ localStorage is working correctly</div>';
+                } else {
+                    result.innerHTML = '<div class="error">❌ localStorage test failed</div>';
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ localStorage error: ${error.message}</div>`;
+            }
+        }
+
+        function testTodoData() {
+            const result = document.getElementById('todoDataResult');
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    const tasks = JSON.parse(stored);
+                    result.innerHTML = `
+                        <div class="success">
+                            ✅ Found ${tasks.length} tasks in localStorage
+                            <pre>${JSON.stringify(tasks, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    result.innerHTML = '<div class="error">❌ No todo data found in localStorage</div>';
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ Error reading todo data: ${error.message}</div>`;
+            }
+        }
+
+        function addTestData() {
+            const result = document.getElementById('persistenceResult');
+            try {
+                const testTask = {
+                    id: Date.now().toString(),
+                    title: 'Persistence Test Task',
+                    description: 'This task was created to test data persistence',
+                    status: 'To Do',
+                    priority: 'High',
+                    dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                    createdAt: new Date().toISOString()
+                };
+
+                const existingData = localStorage.getItem(STORAGE_KEY);
+                let tasks = [];
+                
+                if (existingData) {
+                    tasks = JSON.parse(existingData);
+                }
+                
+                tasks.unshift(testTask);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+                
+                result.innerHTML = `
+                    <div class="success">
+                        ✅ Added test task. Total tasks: ${tasks.length}
+                        <pre>${JSON.stringify(testTask, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ Error adding test data: ${error.message}</div>`;
+            }
+        }
+
+        function clearTestData() {
+            const result = document.getElementById('persistenceResult');
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+                result.innerHTML = '<div class="success">✅ Cleared all todo data from localStorage</div>';
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ Error clearing data: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-run localStorage test on page load
+        window.onload = function() {
+            testLocalStorage();
+        };
+    </script>
+</body>
+</html> 
