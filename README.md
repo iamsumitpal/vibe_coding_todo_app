@@ -1,4 +1,4 @@
-# Todo App - Kanban Board
+# Todo App
 
 A modern, feature-rich browser-based to-do list application built with React, Firestore, and Tailwind CSS. The application provides a seamless user experience for creating, organizing, and tracking tasks with a visual Kanban-style interface and powerful filtering capabilities.
 
